@@ -1,6 +1,6 @@
 /* eslint-disable react-native/no-inline-styles */
 /* eslint-disable no-unused-vars */
-import * as React from 'react';
+import React, {useRef} from 'react';
 import {
   StatusBar,
   Animated,
@@ -9,8 +9,9 @@ import {
   View,
   StyleSheet,
   Dimensions,
+  TouchableOpacity,
+  FlatList,
 } from 'react-native';
-import {TouchableOpacity} from 'react-native-gesture-handler';
 const {width, height} = Dimensions.get('screen');
 
 const bgs = ['#A5BBFF', '#DDBEFE', '#FF63ED', '#B98EFF'];
@@ -44,23 +45,164 @@ const DATA = [
   },
 ];
 
+const Indicator = ({scrollX}) => {
+  return (
+    <View style={{position: 'absolute', bottom: 100, flexDirection: 'row'}}>
+      {DATA.map((_, i) => {
+        const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
+        const scale = scrollX.interpolate({
+          inputRange,
+          outputRange: [0.8, 1.4, 0.8],
+          extrapolate: 'clamp',
+        });
+        const opacity = scrollX.interpolate({
+          inputRange,
+          outputRange: [0.6, 1, 0.6],
+          extrapolate: 'clamp',
+        });
+        return (
+          <Animated.View
+            key={`indicator-${i}`}
+            style={{
+              height: 10,
+              width: 10,
+              borderRadius: 5,
+              backgroundColor: '#fff',
+              opacity,
+              margin: 10,
+              transform: [
+                {
+                  scale,
+                },
+              ],
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+};
+
+const Backdrop = ({scrollX}) => {
+  const backgroundColor = scrollX.interpolate({
+    inputRange: bgs.map((_, i) => i * width),
+    outputRange: bgs.map((bg) => bg),
+  });
+  return (
+    <Animated.View
+      style={[
+        StyleSheet.absoluteFillObject,
+        {
+          backgroundColor,
+        },
+      ]}
+    />
+  );
+};
+
+const Square = ({scrollX}) => {
+  const YOLO = Animated.modulo(
+    Animated.divide(Animated.modulo(scrollX, width), new Animated.Value(width)),
+    1,
+  );
+
+  const rotate = YOLO.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['35deg', '0deg', '35deg'],
+  });
+
+  const translate = YOLO.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, -height, 0],
+  });
+
+  return (
+    <Animated.View
+      style={{
+        width: height - StatusBar.currentHeight,
+        height: height - StatusBar.currentHeight,
+        backgroundColor: '#fff',
+        borderRadius: 86,
+        position: 'absolute',
+        top: -(height - StatusBar.currentHeight) * 0.6,
+        left: -(height - StatusBar.currentHeight) * 0.23,
+        transform: [
+          {
+            rotate: '35deg',
+          },
+          {
+            translateY: translate,
+          },
+          {
+            translateX: translate,
+          },
+        ],
+      }}
+    />
+  );
+};
+
 export default function App() {
+  const scrollX = useRef(new Animated.Value(0)).current;
+
   return (
     <View style={styles.container}>
       <StatusBar hidden />
-      <Text style={{fontSize: 42}}>❤️</Text>
-      <Text
-        style={{
-          fontFamily: 'Menlo',
-          marginTop: 10,
-          fontWeight: '800',
-          fontSize: 16,
-        }}>
-        Expo
-      </Text>
-      <Text style={{fontFamily: 'Menlo', fontStyle: 'italic', fontSize: 12}}>
-        (expo.io)
-      </Text>
+      <Backdrop scrollX={scrollX} />
+      <Square scrollX={scrollX} />
+      <Animated.FlatList
+        data={DATA}
+        keyExtractor={(item) => item.key}
+        horizontal
+        scrollEventThrottle={32}
+        onScroll={Animated.event(
+          [{nativeEvent: {contentOffset: {x: scrollX}}}],
+          {useNativeDriver: false},
+        )}
+        contentContainerStyle={{paddingBottom: 100}}
+        showsHorizontalScrollIndicator={false}
+        pagingEnabled
+        renderItem={({item}) => {
+          return (
+            <View
+              style={{
+                width,
+                alignItems: 'center',
+                padding: 20,
+              }}>
+              <View
+                style={{
+                  flex: 0.7,
+                  justifyContent: 'center',
+                }}>
+                <Image
+                  source={{uri: item.image}}
+                  style={{
+                    width: width / 2,
+                    height: width / 2,
+                    resizeMode: 'contain',
+                  }}
+                />
+              </View>
+              <View style={{flex: 0.3}}>
+                <Text
+                  style={{
+                    color: '#fff',
+                    fontWeight: '800',
+                    fontSize: 28,
+                    marginBottom: 10,
+                  }}>
+                  {item.title}
+                </Text>
+                <Text style={{color: '#fff', fontWeight: '300'}}>
+                  {item.description}
+                </Text>
+              </View>
+            </View>
+          );
+        }}
+      />
+      <Indicator scrollX={scrollX} />
     </View>
   );
 }
